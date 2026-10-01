@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sim-config
+data:
+  DB_URL: "jdbc:postgresql://postgres:5432/smartims"
+  DB_USERNAME: "postgres"
+  MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,prometheus"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sim-secrets
+type: Opaque
+stringData:
+  DB_PASSWORD: "root"
+  POSTGRES_PASSWORD: "root"
+  # Fill for real sign-up OTP emails (Gmail App Password), then set
+  # MANAGEMENT_HEALTH_MAIL_ENABLED to "true" above if you want the mail health check.
+  MAIL_USERNAME: ""
+  MAIL_PASSWORD: ""
+  MAIL_FROM: ""
