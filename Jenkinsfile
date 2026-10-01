@@ -1,65 +1,52 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    DOCKERHUB_USER = 'hari9787'
-    BACKEND_IMAGE  = "${DOCKERHUB_USER}/employee-backend"
-    FRONTEND_IMAGE = "${DOCKERHUB_USER}/employee-frontend"
-    TAG            = "v${BUILD_NUMBER}"
-    JAVA_HOME      = 'C:\\Program Files\\Microsoft\\jdk-21.0.12.8-hotspot'
-    PATH           = "${JAVA_HOME}\\bin;${env.PATH}"
-  }
-
-  stages {
-    stage('Build') {
-      steps {
-        dir('backend')  { bat 'mvnw.cmd -B clean package -DskipTests' }
-        dir('frontend') { bat 'npm ci && npm run build' }
-      }
+    environment {
+        DOCKER_USER        = 'harish230504'
+        TAG                = "v${env.BUILD_NUMBER}"
+        JAVA_TOOL_OPTIONS  = '-Duser.timezone=Asia/Kolkata'
+        DB_URL             = 'jdbc:postgresql://localhost:5432/incidentdb'
+        DB_USERNAME        = 'postgres'
+        DB_PASSWORD        = 'postgres'
     }
 
-    stage('Test') {
-      steps {
-        // Spring context tests need a database; do not block the pipeline on them
-        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-          dir('backend') { bat 'mvnw.cmd -B test' }
+    stages {
+        stage('Build') {
+            steps {
+                dir('backend')  { bat 'mvn -B clean package -DskipTests' }
+                dir('frontend') {
+                    bat 'npm ci'
+                    bat 'npm run build'
+                }
+            }
         }
-      }
-    }
-
-    stage('Docker Build') {
-      steps {
-        bat 'docker build -t %BACKEND_IMAGE%:%TAG% -t %BACKEND_IMAGE%:latest backend'
-        bat 'docker build -t %FRONTEND_IMAGE%:%TAG% -t %FRONTEND_IMAGE%:latest frontend'
-      }
-    }
-
-    stage('Docker Push') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
-                                          usernameVariable: 'DH_USER',
-                                          passwordVariable: 'DH_PASS')]) {
-          bat 'echo %DH_PASS%| docker login -u %DH_USER% --password-stdin'
-          bat 'docker push %BACKEND_IMAGE%:%TAG%'
-          bat 'docker push %BACKEND_IMAGE%:latest'
-          bat 'docker push %FRONTEND_IMAGE%:%TAG%'
-          bat 'docker push %FRONTEND_IMAGE%:latest'
+        stage('Test') {
+            steps {
+                dir('backend') { bat 'mvn -B test' }
+            }
         }
-      }
+        stage('Docker Build') {
+            steps {
+                bat 'docker build -t %DOCKER_USER%/employee-backend:%TAG% backend'
+                bat 'docker build -t %DOCKER_USER%/employee-frontend:%TAG% --build-arg VITE_API_URL=http://localhost:8088 frontend'
+            }
+        }
+        stage('Docker Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+                    bat 'echo %DH_PASS%| docker login -u %DH_USER% --password-stdin'
+                    bat 'docker push %DOCKER_USER%/employee-backend:%TAG%'
+                    bat 'docker push %DOCKER_USER%/employee-frontend:%TAG%'
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                bat 'kubectl set image deployment/employee-backend employee-backend=%DOCKER_USER%/employee-backend:%TAG%'
+                bat 'kubectl set image deployment/employee-frontend employee-frontend=%DOCKER_USER%/employee-frontend:%TAG%'
+                bat 'kubectl rollout status deployment/employee-backend --timeout=300s'
+                bat 'kubectl rollout status deployment/employee-frontend --timeout=120s'
+            }
+        }
     }
-
-    stage('Deploy') {
-      steps {
-        bat 'kubectl apply -f k8s/'
-        bat 'kubectl set image deployment/backend backend=%BACKEND_IMAGE%:%TAG%'
-        bat 'kubectl set image deployment/frontend frontend=%FRONTEND_IMAGE%:%TAG%'
-        bat 'kubectl rollout status deployment/backend --timeout=240s'
-        bat 'kubectl rollout status deployment/frontend --timeout=120s'
-      }
-    }
-  }
-
-  post {
-    always { bat 'docker logout' }
-  }
 }

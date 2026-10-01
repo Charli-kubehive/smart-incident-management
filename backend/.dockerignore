@@ -3,3 +3,5 @@ target
 *.log
 run.log
 .mvn/wrapper/maven-wrapper.jar
+
+.env.properties

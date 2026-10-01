@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: employee-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: employee-backend
+  template:
+    metadata:
+      labels:
+        app: employee-backend
+    spec:
+      containers:
+        - name: employee-backend
+          image: harish230504/employee-backend:v1
+          ports:
+            - containerPort: 8088
+          env:
+            - name: DB_URL
+              value: jdbc:postgresql://postgres:5432/incidentdb
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: DB_USERNAME }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: DB_PASSWORD }
+            - name: GMAIL_USERNAME
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: GMAIL_USERNAME }
+            - name: GMAIL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: GMAIL_PASSWORD }
+            - name: MANAGEMENT_HEALTH_MAIL_ENABLED
+              value: "false"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8088
+            initialDelaySeconds: 40
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: employee-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: employee-frontend
+  template:
+    metadata:
+      labels:
+        app: employee-frontend
+    spec:
+      containers:
+        - name: employee-frontend
+          image: harish230504/employee-frontend:v1
+          ports:
+            - containerPort: 80
