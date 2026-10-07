@@ -9,6 +9,6 @@ RUN mvn -q -B clean package -DskipTests
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
-EXPOSE 8088
+EXPOSE 8080
 # Asia/Kolkata avoids the PostgreSQL "invalid value for parameter TimeZone: Asia/Calcutta" crash
 ENTRYPOINT ["java","-Duser.timezone=Asia/Kolkata","-jar","app.jar"]
